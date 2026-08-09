@@ -1320,6 +1320,12 @@ function frame(now) {
     Intro.render(ctx, cssW, cssH, t);
   } else if (scene === 'transform') {
     Transform.update(dt);
+    // draw the game world underneath the cutscene so hits and the player's
+    // explosion are visible when the UFO fires
+    const scale = cssH / VIEW_H;
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -cam.x * dpr * scale, -cam.y * dpr * scale);
+    render(t); // draws the full game frame
+    // now render the transform overlay (panels / UFO) at CSS pixel scale
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     Transform.render(ctx, cssW, cssH, t);
   } else {
