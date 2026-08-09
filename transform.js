@@ -347,16 +347,9 @@
   }
 
   function renderUfo(ctx, cssW, cssH, t) {
-    // paper background
-    ctx.fillStyle = '#f7f6f2';
-    ctx.fillRect(0, 0, cssW, cssH);
-    if (window.paperPattern) {
-      ctx.save();
-      ctx.globalAlpha = 0.85;
-      ctx.fillStyle = window.paperPattern;
-      ctx.fillRect(0, 0, cssW, cssH);
-      ctx.restore();
-    }
+    // NOTE: do not clear the canvas here — draw the UFO over the existing
+    // game frame so the player and world remain visible during the laser.
+    // (paper background kept out so transform is rendered as an overlay)
 
     const k = state.ufoT / UFO_DUR;
     // UFO path: sweeps from top-right to mid-left
