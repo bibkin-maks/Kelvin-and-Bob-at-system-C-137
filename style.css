@@ -1,0 +1,32 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #e8e6df;
+}
+
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  /* the page itself is the paper, so keep the pixels soft rather than crisp */
+  image-rendering: auto;
+  touch-action: none;
+}
+
+#loading {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 300 1.4rem/1 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+  color: #4a463f;
+  background: #f6f5f1;
+  transition: opacity .4s ease, visibility 0s linear .4s;
+}
+
+#loading.gone {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
