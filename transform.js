@@ -363,7 +363,7 @@
     const ux = cssW * (1.3 - k * 1.6);
     const uy = cssH * (0.08 + k * 0.35);
 
-    if (ufoReady && ufoImg) {
+    if (ufoReady && ufoImg && ufoImg.naturalWidth > 0) {
       const size = Math.min(cssW, cssH) * 0.22;
       const aspect = ufoImg.naturalWidth / ufoImg.naturalHeight;
       const uw = size * aspect;
@@ -441,6 +441,66 @@
           ctx.beginPath(); ctx.arc(targetX, targetY, ir, 0, Math.PI * 2); ctx.fill();
         }
 
+        ctx.restore();
+      }
+    } else {
+      // image not available — draw a simple fallback UFO silhouette so the
+      // scene reads even when the asset fails to load.
+      const size = Math.min(cssW, cssH) * 0.22;
+      const uw = size * 1.6;
+      const uh = size * 0.6;
+      ctx.save();
+      ctx.translate(ux, uy);
+      const wobble = Math.sin(state.ufoT * 8) * 0.06;
+      ctx.rotate(wobble);
+      // body
+      ctx.globalAlpha = 1;
+      const bodyGrad = ctx.createLinearGradient(-uw / 2, 0, uw / 2, 0);
+      bodyGrad.addColorStop(0, 'rgba(80,80,80,0.95)');
+      bodyGrad.addColorStop(0.5, 'rgba(140,140,140,0.98)');
+      bodyGrad.addColorStop(1, 'rgba(80,80,80,0.95)');
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath(); ctx.ellipse(0, 0, uw / 2, uh / 2, 0, 0, Math.PI * 2); ctx.fill();
+      // dome
+      ctx.fillStyle = 'rgba(180,220,200,0.9)';
+      ctx.beginPath(); ctx.ellipse(0, -uh * 0.18, uw * 0.35, uh * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // LASER BEAM (same as above)
+      if (k >= LASER_START && k < LASER_END + 0.15) {
+        const beamK = Math.min(1, (k - LASER_START) / 0.08);
+        const fadeK = k > LASER_END ? Math.max(0, 1 - (k - LASER_END) / 0.15) : 1;
+        const targetX = cssW * 0.45;
+        const targetY = cssH * 0.75;
+        ctx.save();
+        ctx.globalAlpha = beamK * fadeK;
+        const ux2 = ux; const uy2 = uy + uh * 0.4;
+        const grad = ctx.createLinearGradient(ux2, uy2, targetX, targetY);
+        grad.addColorStop(0, 'rgba(120, 255, 80, 0.9)');
+        grad.addColorStop(0.5, 'rgba(180, 255, 120, 0.7)');
+        grad.addColorStop(1, 'rgba(255, 255, 200, 0.5)');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 6 + Math.sin(state.ufoT * 40) * 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(ux2, uy2);
+        ctx.lineTo(targetX, targetY);
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(120, 255, 80, ${0.25 * beamK * fadeK})`;
+        ctx.lineWidth = 22 + Math.sin(state.ufoT * 30) * 6;
+        ctx.beginPath();
+        ctx.moveTo(ux2, uy2);
+        ctx.lineTo(targetX, targetY);
+        ctx.stroke();
+        if (beamK > 0.5) {
+          const ir = 30 + Math.sin(state.ufoT * 50) * 12;
+          const ig = ctx.createRadialGradient(targetX, targetY, 0, targetX, targetY, ir);
+          ig.addColorStop(0, `rgba(255, 255, 220, ${0.8 * fadeK})`);
+          ig.addColorStop(0.5, `rgba(180, 255, 120, ${0.4 * fadeK})`);
+          ig.addColorStop(1, 'rgba(120, 255, 80, 0)');
+          ctx.fillStyle = ig;
+          ctx.beginPath(); ctx.arc(targetX, targetY, ir, 0, Math.PI * 2); ctx.fill();
+        }
         ctx.restore();
       }
     }
