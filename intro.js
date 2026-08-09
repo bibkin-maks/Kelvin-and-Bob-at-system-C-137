@@ -414,7 +414,9 @@
     const longest = Math.max(...beat().lines.map((l) => l.length));
     const size = Math.min(30, ((bw - 52) / longest) * 1.85);
     const lh = size * 1.34;
-    const top = by + bh / 2 - (beat().lines.length * lh) / 2;
+    // center based on visible lines so typing doesn't shift the block
+    const visibleLines = Math.max(1, lines.length);
+    const top = by + bh / 2 - (visibleLines * lh) / 2;
 
     if (state.started) {
       for (let i = 0; i < lines.length; i++) {

@@ -520,7 +520,9 @@
     const longest = Math.max(...beat().lines.map((l) => l.length));
     const size = Math.min(28, ((bw - 46) / longest) * 1.85);
     const lh = size * 1.34;
-    const top = by + bh / 2 - (beat().lines.length * lh) / 2;
+    // center based on visible lines so typing doesn't shift the block
+    const visibleLines = Math.max(1, lines.length);
+    const top = by + bh / 2 - (visibleLines * lh) / 2;
 
     for (let i = 0; i < lines.length; i++) {
       pixelText(ctx, lines[i], bx - W / 2 + bw / 2, top - H / 2 + i * lh, size, `rgb(${INK})`);
