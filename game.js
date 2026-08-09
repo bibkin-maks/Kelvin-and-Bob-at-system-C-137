@@ -377,6 +377,9 @@ function explodePlayer(dmg) {
   player.hp = Math.max(0, player.hp - (dmg || PLAYER_MAX_HP));
   player.hurt = HURT_TIME;
   player.hitsTaken++;
+  player.exploding = true;
+  player.explodeT = 0;
+  playerShards.length = 0;
   // big knockback
   player.vx = (Math.random() - 0.5) * 800;
   player.vy = -720;
@@ -396,6 +399,15 @@ function explodePlayer(dmg) {
 
   // screen whiteout flash
   playerFlash = 1.6;
+  // shards: visual fragments radiating from the player
+  const cx = player.x + PLAYER_W / 2;
+  const cy = player.y + PLAYER_H / 2;
+  for (let i = 0; i < 36; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = 160 + Math.random() * 420;
+    playerShards.push({ x: cx, y: cy, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 60,
+      life: 0, max: 0.9 + Math.random() * 1.2, len: 12 + Math.random() * 28, rot: Math.random() * 6 });
+  }
 }
 
 let transformTriggered = false;
@@ -441,6 +453,8 @@ const player = {
   jabAnim: 0,               // jab punch animation timer
   animTime: 0, spawnX: 120, spawnY: GROUND_Y - PLAYER_H,
   restY: GROUND_Y - PLAYER_H,   // last height he stood at; drives the camera
+  exploding: false,
+  explodeT: 0,
 };
 
 // muscular body assets
@@ -451,6 +465,7 @@ let playerFlash = 0;
 let collected = 0;
 let won = false;
 let elapsed = 0;
+const playerShards = [];
 
 /* ------------------------------------------------------------------- input */
 
@@ -528,6 +543,19 @@ function update(dt, t = 0) {
   player.cooldown = Math.max(0, player.cooldown - dt);
   player.kick += (0 - player.kick) * Math.min(1, dt * 14);
   playerFlash = Math.max(0, playerFlash - dt * 1.2);
+  if (player.exploding) {
+    player.explodeT += dt;
+    // after the explosion animation, stop exploding
+    if (player.explodeT > 1.6) player.exploding = false;
+  }
+
+  // update explosion shards
+  for (let i = playerShards.length - 1; i >= 0; i--) {
+    const s = playerShards[i];
+    s.life += dt; s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 1400 * dt; // gravity on shards
+    s.vx *= 1 - dt * 1.8;
+    if (s.life > s.max) playerShards.splice(i, 1);
+  }
 
   const dir = (held(RIGHT) ? 1 : 0) - (held(LEFT) ? 1 : 0);
   const accel = player.onGround ? GROUND_ACCEL : AIR_ACCEL;
@@ -1059,8 +1087,19 @@ function drawPlayer(ctx) {
   const scaleX = SPRITE_SCALE * (1 + sq * 0.6);
 
   ctx.save();
-  ctx.translate(cx - player.facing * player.kick * 7, feet);   // recoil shove
-  ctx.scale(player.facing * scaleX, scaleY);
+  // explosion transform: scale/rotate/fade while exploding
+  if (player.exploding) {
+    const ek = Math.min(1, player.explodeT / 1.2);
+    const extraScale = 1 + ek * 1.8 + Math.sin(player.explodeT * 40) * 0.04;
+    const extraRot = player.explodeT * 6 * (player.facing || 1);
+    ctx.translate(cx, feet - PLAYER_H * 0.35);
+    ctx.rotate(extraRot);
+    ctx.scale(player.facing * scaleX * extraScale, scaleY * extraScale);
+    ctx.globalAlpha = Math.max(0.12, 1 - ek * 1.1);
+  } else {
+    ctx.translate(cx - player.facing * player.kick * 7, feet);   // recoil shove
+    ctx.scale(player.facing * scaleX, scaleY);
+  }
   // Shrinking a 900px drawing to ~200px averages the thin graphite lines away
   // and leaves him paler than the level around him; a second pass puts the
   // weight back without touching the shape.
@@ -1230,6 +1269,22 @@ function render(t) {
   }
 
   if (scene !== 'crash' || Crash.climb() > 0) drawPlayer(ctx);
+  // draw explosion shards (world-space)
+  if (playerShards.length > 0) {
+    ctx.lineCap = 'round';
+    for (const s of playerShards) {
+      const a = 1 - s.life / s.max;
+      ctx.strokeStyle = `rgba(${INK}, ${0.85 * a})`;
+      ctx.lineWidth = Math.max(1, (1.6 * a));
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(s.x - s.vx * 0.03, s.y - s.vy * 0.03);
+      ctx.stroke();
+      // little particle head
+      ctx.fillStyle = `rgba(${INK}, ${0.9 * a})`;
+      ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(1.2, (s.len / 12) * a), 0, Math.PI * 2); ctx.fill();
+    }
+  }
   if (cam.x + viewW > FLIGHT.x0 - 200 && cam.x < FLIGHT.x1 + 200) Flight.render(ctx, t);
   drawBullets(ctx);
 
