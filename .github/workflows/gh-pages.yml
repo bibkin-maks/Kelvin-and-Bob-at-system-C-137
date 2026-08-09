@@ -1,32 +1,82 @@
 name: Deploy to GitHub Pages
 
+# The previous version pushed a gh-pages branch with peaceiris. That worked -
+# the branch exists and has index.html at its root - but the site still 404'd,
+# because publishing a branch does nothing unless Pages is switched on and
+# pointed at it. This uses the official Pages deployment instead, where
+# configure-pages turns Pages on through the API (enablement: true) and sets
+# the source to Actions, so the deploy no longer depends on a repo setting
+# somebody has to remember to flip.
+
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:        # so it can be re-run without an empty commit
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
+# let a running deploy finish rather than cancelling it half-published
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false # otherwise the token used is the GITHUB_TOKEN, which has limited permissions
 
-      - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
         with:
-          node-version: '24'
+          enablement: true
 
+      # Publishing the repo root shipped 125 MB: the source .mp4s, every raw
+      # extracted frame, and a 63 MB .rar. None of it is fetched by the browser
+      # - the game is index.html, the scripts and assets/, about 21 MB.
+      - name: Stage the site
+        run: |
+          mkdir -p _site
+          cp index.html style.css _site/
+          cp ./*.js _site/
+          cp -r assets _site/
+          touch _site/.nojekyll
+          echo "staged $(du -sh _site | cut -f1) across $(find _site -type f | wc -l) files"
+
+      - name: Fail if the entry point or sprite data is missing
+        run: |
+          for f in _site/index.html _site/game.js _site/assets/sprite.js \
+                   _site/assets/soldier_sheet.png _site/assets/paper.png; do
+            [ -s "$f" ] || { echo "missing or empty: $f"; exit 1; }
+          done
+          # every asset the page references must exist with matching case:
+          # Pages is case-sensitive where a Windows checkout is not
+          missing=0
+          grep -rhoE "['\"][A-Za-z0-9_./-]+\.(png|js|css|json)['\"]" \
+            _site/index.html _site/*.js | tr -d "'\"" | sed 's|^\./||' \
+            | sort -u | while read -r ref; do
+              case "$ref" in http*|//*) continue;; esac
+              [ -e "_site/$ref" ] || { echo "broken reference: $ref"; exit 1; }
+            done || missing=1
+          [ "$missing" -eq 0 ] || exit 1
+          echo "entry point and asset references check out"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: .
+        id: deployment
+        uses: actions/deploy-pages@v4
